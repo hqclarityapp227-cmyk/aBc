@@ -4,7 +4,7 @@ import {
   ColumnMapping,
   STANDARD_FIELDS,
 } from '../../types';
-import { deduplicateHeaders, parseBuffer } from '../fileParser';
+import { deduplicateHeaders, parseBuffer, parseCSVString } from '../fileParser';
 import { detectColumns, validateMappingCompleteness } from '../columnDetector';
 import {
   cleanString,
@@ -686,6 +686,118 @@ export function runEndToEndReliabilityTests() {
     // Verify Sheet 2
     assertEqual(parsed.sheets[1].rows.length, 2, 'Sheet 2 has 2 data rows');
     assertEqual(parsed.sheets[1].rows[0]['Salesperson'], 'Taylor Brooks', 'Sheet 2 Row 1 Rep');
+  });
+
+  // =========================================================================
+  // 9. RFC 4180 PapaParse CSV Parser Requirements (Quotes, Headers, Missing, Trim)
+  // =========================================================================
+  console.log('\n9. RFC 4180 PapaParse CSV Parser Requirements:');
+
+  test('Preserves quotation marks and does not split on commas inside quotes', () => {
+    const csvContent = [
+      'Txn_ID,Customer_Name,Product_Description,Deal_Amount',
+      'TX-001,"Acme, Inc.","Software, Enterprise Suite 100pk",$15000.00',
+      'TX-002,"Global Tech, LLC","Standard ""Pro"" Edition",$8500.00',
+      'TX-003,"Smith, Jones & Co.","Consulting, Setup & Training, Tier 1",$3200.00',
+    ].join('\n');
+
+    const parsed = parseCSVString(csvContent, 'quoted_deals.csv');
+    assertEqual(parsed.sheets[0].headers.length, 4, '4 headers detected');
+    assertEqual(parsed.sheets[0].rows.length, 3, '3 data rows');
+
+    // Row 1: "Acme, Inc." must not split into "Acme" and "Inc."
+    assertEqual(parsed.sheets[0].rows[0]['Customer_Name'], 'Acme, Inc.', 'Commas preserved in customer name');
+    assertEqual(parsed.sheets[0].rows[0]['Product_Description'], 'Software, Enterprise Suite 100pk', 'Commas preserved in description');
+
+    // Row 2: Escaped double quotes
+    assertEqual(parsed.sheets[0].rows[1]['Customer_Name'], 'Global Tech, LLC', 'Commas in LLC');
+    assertEqual(parsed.sheets[0].rows[1]['Product_Description'], 'Standard "Pro" Edition', 'Escaped quotes preserved');
+
+    // Row 3: Multiple commas inside quotes
+    assertEqual(parsed.sheets[0].rows[2]['Customer_Name'], 'Smith, Jones & Co.', 'Ampersand & comma');
+    assertEqual(parsed.sheets[0].rows[2]['Product_Description'], 'Consulting, Setup & Training, Tier 1', '3 commas in quotes');
+  });
+
+  test('Reliably treats the first non-empty line as the header row', () => {
+    const csvWithBlankTopLines = [
+      '', // Blank line 1
+      '   ', // Whitespace-only line 2
+      '	', // Tab line 3
+      'Rep Name,Date,Amount,Stage', // Real headers on line 4
+      'Sarah Jenkins,2024-07-15,$5000,Closed Won',
+      'Alex Rivera,2024-07-20,$8000,Closed Won',
+    ].join('\r\n');
+
+    const parsed = parseCSVString(csvWithBlankTopLines, 'test_blank_headers.csv');
+    assertEqual(parsed.sheets[0].headers.length, 4, '4 headers parsed');
+    assertEqual(parsed.sheets[0].headers[0], 'Rep Name', 'Header 0 is Rep Name');
+    assertEqual(parsed.sheets[0].headers[1], 'Date', 'Header 1 is Date');
+    assertEqual(parsed.sheets[0].rows.length, 2, '2 data rows parsed');
+    assertEqual(parsed.sheets[0].rows[0]['Rep Name'], 'Sarah Jenkins', 'Row 1 rep is Sarah');
+  });
+
+  test('Handles missing values without dropping the row', () => {
+    const csvWithMissingCells = [
+      'Order_ID,Sales_Rep,Sale_Date,Gross_Sales,Deal_Stage',
+      'TX-101,Sarah Jenkins,2024-07-10,$6000.00,Closed Won',
+      'TX-102,,2024-07-11,$4500.00,Closed Won', // Missing sales rep
+      'TX-103,Taylor Brooks,,$3200.00,Closed Won', // Missing date
+      'TX-104,Alex Rivera,2024-07-15,,Closed Won', // Missing amount
+      'TX-105,Morgan Lee,2024-07-18,$5000.00,', // Missing stage
+      'TX-106,Chris Evans', // Missing all trailing columns
+      '', // Completely blank line (should be skipped)
+      '   ', // Whitespace line (should be skipped)
+      'TX-107,Jordan Casey,2024-07-22,$7000.00,Closed Won',
+    ].join('\n');
+
+    const parsed = parseCSVString(csvWithMissingCells, 'partial_missing.csv');
+    assertEqual(parsed.sheets[0].headers.length, 5, '5 headers');
+    // All 7 non-empty transaction rows must be preserved without dropping
+    assertEqual(parsed.sheets[0].rows.length, 7, 'All 7 rows preserved despite missing fields');
+
+    // Verify row 2 (missing rep) was NOT dropped
+    assertEqual(parsed.sheets[0].rows[1]['Order_ID'], 'TX-102', 'Row 2 preserved');
+    assertEqual(parsed.sheets[0].rows[1]['Sales_Rep'], '', 'Missing rep is empty string');
+
+    // Verify row 3 (missing date) was NOT dropped
+    assertEqual(parsed.sheets[0].rows[2]['Order_ID'], 'TX-103', 'Row 3 preserved');
+    assertEqual(parsed.sheets[0].rows[2]['Sale_Date'], '', 'Missing date is empty string');
+
+    // Verify row 4 (missing amount) was NOT dropped
+    assertEqual(parsed.sheets[0].rows[3]['Order_ID'], 'TX-104', 'Row 4 preserved');
+    assertEqual(parsed.sheets[0].rows[3]['Gross_Sales'], '', 'Missing amount is empty string');
+
+    // Verify row 6 (missing trailing cols) was NOT dropped
+    assertEqual(parsed.sheets[0].rows[5]['Order_ID'], 'TX-106', 'Row 6 preserved');
+    assertEqual(parsed.sheets[0].rows[5]['Sales_Rep'], 'Chris Evans', 'Row 6 rep preserved');
+    assertEqual(parsed.sheets[0].rows[5]['Sale_Date'], '', 'Missing trailing col is empty string');
+    assertEqual(parsed.sheets[0].rows[5]['Gross_Sales'], '', 'Missing trailing col is empty string');
+  });
+
+  test('Trims extraneous whitespace around headers and values', () => {
+    const messyWhitespaceCsv = [
+      '   Sales Rep   ,   Posting Date   ,   Deal Amount   ,   Stage   ',
+      '   Sarah Jenkins   ,   2024-07-15   ,   "$ 12,500.00"   ,   Closed Won   ',
+      '   Alex Rivera   ,   2024-08-01   ,   $ 4500.00   ,   Paid   ',
+    ].join('\n');
+
+    const parsed = parseCSVString(messyWhitespaceCsv, 'whitespace.csv');
+    // Headers must have extraneous whitespace trimmed
+    assertEqual(parsed.sheets[0].headers[0], 'Sales Rep', 'Header trimmed');
+    assertEqual(parsed.sheets[0].headers[1], 'Posting Date', 'Header trimmed');
+    assertEqual(parsed.sheets[0].headers[2], 'Deal Amount', 'Header trimmed');
+    assertEqual(parsed.sheets[0].headers[3], 'Stage', 'Header trimmed');
+
+    // Cell values must have extraneous whitespace trimmed
+    assertEqual(parsed.sheets[0].rows[0]['Sales Rep'], 'Sarah Jenkins', 'Rep trimmed');
+    assertEqual(parsed.sheets[0].rows[0]['Posting Date'], '2024-07-15', 'Date trimmed');
+    assertEqual(parsed.sheets[0].rows[0]['Deal Amount'], '$ 12,500.00', 'Amount trimmed');
+    assertEqual(parsed.sheets[0].rows[0]['Stage'], 'Closed Won', 'Stage trimmed');
+
+    assertEqual(parsed.sheets[0].rows[1]['Sales Rep'], 'Alex Rivera', 'Rep trimmed');
+    assertEqual(parsed.sheets[0].rows[1]['Posting Date'], '2024-08-01', 'Date trimmed');
+    assertEqual(parsed.sheets[0].rows[1]['Deal Amount'], '$ 4500.00', 'Amount trimmed');
+    assertEqual(parsed.sheets[0].rows[1]['Stage'], 'Paid', 'Stage trimmed');
   });
 
   console.log('\n========================================');

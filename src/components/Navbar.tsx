@@ -55,14 +55,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <span className="font-semibold text-base tracking-tight text-white">
-                  Commission Calculator
+                  Commission Engine Pro
                 </span>
                 <span className="px-2 py-0.5 text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-800 rounded">
                   Instant & Private
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Simple sales commission calculations & Excel reports
+                Sales commission calculator & audit-ready Excel reports
               </p>
             </div>
           </div>
