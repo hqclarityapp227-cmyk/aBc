@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { UploadStep } from './components/UploadStep';
 import { MappingStep } from './components/MappingStep';
@@ -45,6 +45,11 @@ export default function App() {
     closeModal,
     handleUnlockedSuccess,
   } = useProLicense();
+
+  // Ensure browser document title is set
+  useEffect(() => {
+    document.title = 'Commission Engine Pro | Sales Commission Calculator';
+  }, []);
 
   // When a workbook is loaded, run auto column detection
   const handleWorkbookLoaded = (wb: ParsedWorkbook) => {
