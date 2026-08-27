@@ -19,12 +19,16 @@ interface ExportStepProps {
   summary: ProcessingSummary;
   onBackToReview: () => void;
   onReset: () => void;
+  isUnlocked?: boolean;
+  onRequirePro: (onSuccess?: () => void) => void;
 }
 
 export const ExportStep: React.FC<ExportStepProps> = ({
   summary,
   onBackToReview,
   onReset,
+  isUnlocked,
+  onRequirePro,
 }) => {
   const [options, setOptions] = useState<ExportOptions>({
     includeSummarySheet: true,
@@ -39,7 +43,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({
 
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  const handleDownloadXLSX = () => {
+  const executeDownloadXLSX = () => {
     const timestamp = new Date().toISOString().slice(0, 10);
     const fileName = `Commission_Report_${timestamp}.xlsx`;
     downloadExcelWorkbook(summary, fileName, options);
@@ -47,7 +51,15 @@ export const ExportStep: React.FC<ExportStepProps> = ({
     setTimeout(() => setDownloadSuccess(false), 5000);
   };
 
-  const handleDownloadCSV = () => {
+  const handleDownloadXLSX = () => {
+    if (isUnlocked) {
+      executeDownloadXLSX();
+    } else {
+      onRequirePro(executeDownloadXLSX);
+    }
+  };
+
+  const executeDownloadCSV = () => {
     const csvContent = exportLedgerAsCSV(summary);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -57,6 +69,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDownloadCSV = () => {
+    if (isUnlocked) {
+      executeDownloadCSV();
+    } else {
+      onRequirePro(executeDownloadCSV);
+    }
   };
 
   const activeSheetsCount = Object.entries(options).filter(
@@ -145,11 +165,36 @@ export const ExportStep: React.FC<ExportStepProps> = ({
               type="button"
               id="btn-download-xlsx"
               onClick={handleDownloadXLSX}
-              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm rounded-xl transition shadow-md flex items-center justify-center space-x-2 cursor-pointer"
+              className={`w-full py-3.5 ${
+                isUnlocked
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+              } font-extrabold text-sm rounded-xl transition shadow-md flex items-center justify-center space-x-2 cursor-pointer`}
             >
-              <Download className="w-5 h-5" />
-              <span>Download Excel Workbook (.xlsx)</span>
+              {isUnlocked ? (
+                <>
+                  <Download className="w-5 h-5" />
+                  <span>Download Finished Excel Workbook (.xlsx)</span>
+                  <span className="text-[10px] bg-slate-950/20 text-slate-950 px-2 py-0.5 rounded-full font-bold ml-1">
+                    PRO UNLOCKED
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5" />
+                  <span>Download Excel Workbook (.xlsx)</span>
+                  <span className="text-[10px] bg-slate-950 text-emerald-300 px-2 py-0.5 rounded-full font-bold ml-1 flex items-center space-x-1">
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <span>PRO PASS</span>
+                  </span>
+                </>
+              )}
             </button>
+            {!isUnlocked && (
+              <p className="text-[11px] text-center text-emerald-300/90">
+                Calculations and previewing are 100% free • Requires Pro pass ($19/mo) or license key to export
+              </p>
+            )}
           </div>
 
           {/* Worksheets Manifest Preview */}

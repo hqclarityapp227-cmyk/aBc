@@ -10,6 +10,8 @@ import { MappingStep } from './components/MappingStep';
 import { RulesStep } from './components/RulesStep';
 import { ReviewStep } from './components/ReviewStep';
 import { ExportStep } from './components/ExportStep';
+import { ProUpgradeModal } from './components/ProUpgradeModal';
+import { useProLicense } from './hooks/useProLicense';
 import {
   ParsedWorkbook,
   ColumnMapping,
@@ -34,6 +36,15 @@ export default function App() {
   const [ruleSet, setRuleSet] = useState<CommissionRuleSet>({ ...DEFAULT_TIERED_RULESET });
   const [summary, setSummary] = useState<ProcessingSummary | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+
+  // Pro Licensing State & Modal Manager
+  const {
+    isUnlocked,
+    isModalOpen,
+    openModal,
+    closeModal,
+    handleUnlockedSuccess,
+  } = useProLicense();
 
   // When a workbook is loaded, run auto column detection
   const handleWorkbookLoaded = (wb: ParsedWorkbook) => {
@@ -174,6 +185,8 @@ export default function App() {
         fileName={workbook?.fileName}
         hasErrors={summary ? summary.errorRows > 0 : false}
         onReset={handleReset}
+        isUnlocked={isUnlocked}
+        onOpenProModal={() => openModal()}
       />
 
       {/* Main Content Body */}
@@ -186,7 +199,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Step 1: Import & Raw Sheet Inspector */}
+        {/* Step 1: Import & Raw Sheet Inspector (100% Free) */}
         {currentStep === 1 && (
           <UploadStep
             workbook={workbook}
@@ -198,7 +211,7 @@ export default function App() {
           />
         )}
 
-        {/* Step 2: Column Detection & Field Mapping */}
+        {/* Step 2: Column Detection & Field Mapping (100% Free) */}
         {currentStep === 2 && activeSheet && (
           <MappingStep
             sheet={activeSheet}
@@ -215,7 +228,7 @@ export default function App() {
           />
         )}
 
-        {/* Step 3: Commission Rules Configuration */}
+        {/* Step 3: Commission Rules Configuration (100% Free) */}
         {currentStep === 3 && (
           <RulesStep
             ruleSet={ruleSet}
@@ -228,7 +241,7 @@ export default function App() {
           />
         )}
 
-        {/* Step 4: Results Review, Analytics & Issues Quality Log */}
+        {/* Step 4: Results Review, Analytics & Issues Quality Log (100% Free on screen) */}
         {currentStep === 4 && summary && (
           <ReviewStep
             summary={summary}
@@ -237,18 +250,29 @@ export default function App() {
               setCurrentStep(5);
               setMaxStepReached((prev) => Math.max(prev, 5));
             }}
+            isUnlocked={isUnlocked}
+            onRequirePro={(cb) => openModal(cb)}
           />
         )}
 
-        {/* Step 5: Finished Excel Workbook Generation & Download */}
+        {/* Step 5: Finished Excel Workbook Generation & Download (Requires Pro Pass for downloads) */}
         {currentStep === 5 && summary && (
           <ExportStep
             summary={summary}
             onBackToReview={() => setCurrentStep(4)}
             onReset={handleReset}
+            isUnlocked={isUnlocked}
+            onRequirePro={(cb) => openModal(cb)}
           />
         )}
       </main>
+
+      {/* Pro Upgrade / License Activation Modal */}
+      <ProUpgradeModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onUnlockedSuccess={handleUnlockedSuccess}
+      />
 
       {/* Subtle Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">

@@ -53,6 +53,8 @@ interface ReviewStepProps {
   summary: ProcessingSummary;
   onBackToRules: () => void;
   onProceedToExport: () => void;
+  isUnlocked?: boolean;
+  onRequirePro?: (onSuccess?: () => void) => void;
 }
 
 type TabType = 'overview' | 'reps' | 'periods' | 'ledger' | 'cleaned' | 'issues';
@@ -63,6 +65,8 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
   summary,
   onBackToRules,
   onProceedToExport,
+  isUnlocked,
+  onRequirePro,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [selectedRecordForTrace, setSelectedRecordForTrace] = useState<ProcessedRecord | null>(null);
@@ -95,11 +99,21 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
   const [issuesSearch, setIssuesSearch] = useState('');
 
   // Quick instant download
-  const handleQuickDownload = () => {
+  const executeQuickDownload = () => {
     const timestamp = new Date().toISOString().slice(0, 10);
     downloadExcelWorkbook(summary, `Sales_Commission_Report_${timestamp}.xlsx`);
     setDownloadSuccess(true);
     setTimeout(() => setDownloadSuccess(false), 4000);
+  };
+
+  const handleQuickDownload = () => {
+    if (isUnlocked) {
+      executeQuickDownload();
+    } else if (onRequirePro) {
+      onRequirePro(executeQuickDownload);
+    } else {
+      executeQuickDownload();
+    }
   };
 
   // Filtered & Sorted Rep Summaries

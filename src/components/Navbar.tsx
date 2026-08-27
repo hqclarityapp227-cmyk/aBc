@@ -7,8 +7,12 @@ import {
   Download,
   RotateCcw,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  ShieldCheck,
+  ExternalLink,
 } from 'lucide-react';
+import { WHOP_CHECKOUT_URL } from './ProUpgradeModal';
 
 interface NavbarProps {
   currentStep: number;
@@ -17,6 +21,8 @@ interface NavbarProps {
   fileName?: string;
   hasErrors?: boolean;
   onReset: () => void;
+  isUnlocked?: boolean;
+  onOpenProModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -26,6 +32,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   fileName,
   hasErrors,
   onReset,
+  isUnlocked,
+  onOpenProModal,
 }) => {
   const steps = [
     { id: 1, label: '1. Upload File', icon: FileSpreadsheet },
@@ -59,12 +67,50 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Active File & Reset */}
+          {/* Active File, Pro Button & Reset */}
           <div className="flex items-center space-x-3">
+            {/* Upgrade to Pro / Pro Status CTA */}
+            {isUnlocked ? (
+              <button
+                type="button"
+                id="btn-nav-pro-active"
+                onClick={onOpenProModal}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 text-xs font-bold rounded-lg border border-emerald-700/80 transition cursor-pointer"
+                title="Pro Pass Active - Click to view pass details"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>PRO Active</span>
+              </button>
+            ) : (
+              <div className="flex items-center space-x-1.5">
+                <a
+                  id="btn-nav-upgrade-whop-link"
+                  href={WHOP_CHECKOUT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 text-xs font-extrabold rounded-lg shadow-sm transition cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                  <span>Upgrade to Pro</span>
+                  <ExternalLink className="w-3 h-3 text-slate-950" />
+                </a>
+
+                <button
+                  type="button"
+                  id="btn-nav-enter-key"
+                  onClick={onOpenProModal}
+                  className="hidden sm:flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition cursor-pointer"
+                  title="Already a member? Enter license key"
+                >
+                  <span>Have Key?</span>
+                </button>
+              </div>
+            )}
+
             {fileName && (
               <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-slate-800 border border-slate-700 rounded-md text-xs">
                 <span className="text-slate-400">Active File:</span>
-                <span className="font-mono font-medium text-emerald-400 truncate max-w-[200px]" title={fileName}>
+                <span className="font-mono font-medium text-emerald-400 truncate max-w-[180px]" title={fileName}>
                   {fileName}
                 </span>
                 {hasErrors && (
@@ -83,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-md border border-slate-700 transition"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
+                <span className="hidden sm:inline">Reset</span>
               </button>
             )}
           </div>
