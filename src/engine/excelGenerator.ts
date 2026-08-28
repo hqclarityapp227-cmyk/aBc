@@ -1,51 +1,53 @@
 import ExcelJS from 'exceljs';
-import { ProcessingSummary, ExportOptions } from '../types';
+import { ProcessingSummary, ExportOptions, CategorySummary } from '../types';
 
 // Theme Color Palette
 const COLORS = {
   NAVY_HEADER: 'FF1E293B',    // #1E293B Dark Navy
-  NAVY_SUBHEADER: 'FF334155', // #334155 Slate
-  ZEBRA_BG: 'FFF8FAFC',       // #F8FAFC Soft Grey / White
+  SLATE_SUBHEADER: 'FF334155',// #334155 Slate Blue
+  CARD_BG: 'FFF1F5F9',        // #F1F5F9 Soft Card Background
+  ZEBRA_BG: 'FFF8FAFC',       // #F8FAFC Light Grey / Slate
   WHITE_BG: 'FFFFFFFF',       // #FFFFFF Pure White
-  BORDER_GREY: 'FFCBD5E1',    // #CBD5E1 Light Grey Border
-  BORDER_SUBTLE: 'FFF1F5F9',  // #F1F5F9 Very Light Row Border
+  BORDER_MUTED: 'FFCBD5E1',   // #CBD5E1 Thin Muted Border
   TEXT_WHITE: 'FFFFFFFF',     // White
   TEXT_DARK: 'FF0F172A',      // Slate 900
   TEXT_MUTED: 'FF64748B',     // Slate 500
   EMERALD_ACCENT: 'FF059669', // Emerald 600
-  RED_ALERT: 'FFE11D48',      // Rose / Red
-  AMBER_ALERT: 'FFD97706',    // Amber
+  RED_ALERT: 'FFE11D48',      // Rose / Red Alert
+  AMBER_ALERT: 'FFD97706',    // Amber Alert
 };
 
-// Font Defaults
+// Font Family Default
 const FONT_FAMILY = 'Segoe UI';
 
-const BORDER_CARD: Partial<ExcelJS.Borders> = {
-  top: { style: 'thin', color: { argb: COLORS.BORDER_GREY } },
-  bottom: { style: 'thin', color: { argb: COLORS.BORDER_GREY } },
-  left: { style: 'thin', color: { argb: COLORS.BORDER_GREY } },
-  right: { style: 'thin', color: { argb: COLORS.BORDER_GREY } },
+// Active Table Cell Border (Thin Muted #CBD5E1)
+const BORDER_CELL: Partial<ExcelJS.Borders> = {
+  top: { style: 'thin', color: { argb: COLORS.BORDER_MUTED } },
+  bottom: { style: 'thin', color: { argb: COLORS.BORDER_MUTED } },
+  left: { style: 'thin', color: { argb: COLORS.BORDER_MUTED } },
+  right: { style: 'thin', color: { argb: COLORS.BORDER_MUTED } },
 };
 
-const BORDER_ROW_SUBTLE: Partial<ExcelJS.Borders> = {
-  bottom: { style: 'thin', color: { argb: COLORS.BORDER_SUBTLE } },
-  left: { style: 'thin', color: { argb: COLORS.BORDER_SUBTLE } },
-  right: { style: 'thin', color: { argb: COLORS.BORDER_SUBTLE } },
-};
-
+// Double-Underline Total Row Border
 const BORDER_TOTAL_ROW: Partial<ExcelJS.Borders> = {
-  top: { style: 'thin', color: { argb: COLORS.BORDER_GREY } },
-  bottom: { style: 'double', color: { argb: COLORS.BORDER_GREY } },
-  left: { style: 'thin', color: { argb: COLORS.BORDER_GREY } },
-  right: { style: 'thin', color: { argb: COLORS.BORDER_GREY } },
+  top: { style: 'thin', color: { argb: COLORS.BORDER_MUTED } },
+  bottom: { style: 'double', color: { argb: COLORS.BORDER_MUTED } },
+  left: { style: 'thin', color: { argb: COLORS.BORDER_MUTED } },
+  right: { style: 'thin', color: { argb: COLORS.BORDER_MUTED } },
 };
 
 /**
- * Auto-fits all column widths across a worksheet with +4 character padding
- * to prevent text and numerical truncation.
+ * Auto-fits all column widths across a worksheet:
+ * Width = Math.max(maxLen + 5, 16) so text never gets truncated.
+ * Explicitly gives Column A a minimum width of 34 for metric labels on summary/metric sheets.
  */
-export function autoFitColumnsWithPadding(ws: ExcelJS.Worksheet, extraPadding = 4, minWidth = 14, maxWidth = 65) {
-  ws.columns.forEach((column) => {
+export function autoFitColumnsWithPadding(
+  ws: ExcelJS.Worksheet,
+  minWidth = 16,
+  minColAWidth = 16,
+  maxWidth = 70
+) {
+  ws.columns.forEach((column, colIdx) => {
     let maxLen = minWidth;
     column.eachCell?.({ includeEmpty: true }, (cell) => {
       const v = cell.value;
@@ -63,15 +65,23 @@ export function autoFitColumnsWithPadding(ws: ExcelJS.Worksheet, extraPadding = 
         maxLen = cellText.length;
       }
     });
-    column.width = Math.min(maxWidth, maxLen + extraPadding);
+
+    const calculatedWidth = Math.min(maxWidth, Math.max(maxLen + 5, minWidth));
+    // Col Index is 0-based in array
+    if (colIdx === 0 && minColAWidth > calculatedWidth) {
+      column.width = minColAWidth;
+    } else {
+      column.width = calculatedWidth;
+    }
   });
 }
 
 /**
- * Applies header styling (Dark Navy #1E293B with white bold text).
+ * Applies primary table header styling:
+ * Dark Navy (#1E293B) background with bold white text (#FFFFFF), row height = 24.
  */
 export function styleHeaderRow(row: ExcelJS.Row, colCount?: number) {
-  row.height = 28;
+  row.height = 24;
   const count = colCount || row.cellCount;
   for (let c = 1; c <= count; c++) {
     const cell = row.getCell(c);
@@ -82,7 +92,7 @@ export function styleHeaderRow(row: ExcelJS.Row, colCount?: number) {
     };
     cell.font = {
       name: FONT_FAMILY,
-      size: 11,
+      size: 10,
       bold: true,
       color: { argb: COLORS.TEXT_WHITE },
     };
@@ -91,17 +101,41 @@ export function styleHeaderRow(row: ExcelJS.Row, colCount?: number) {
       horizontal: 'left',
       wrapText: false,
     };
-    cell.border = {
-      top: { style: 'thin', color: { argb: COLORS.NAVY_HEADER } },
-      bottom: { style: 'medium', color: { argb: COLORS.BORDER_GREY } },
-      left: { style: 'thin', color: { argb: COLORS.NAVY_HEADER } },
-      right: { style: 'thin', color: { argb: COLORS.NAVY_HEADER } },
-    };
+    cell.border = BORDER_CELL;
   }
 }
 
 /**
- * Applies zebra striping (#F8FAFC / #FFFFFF) and cell borders to a data row.
+ * Applies section sub-header styling:
+ * Slate Blue (#334155) background with white text, row height = 26.
+ */
+export function styleSectionHeaderRow(row: ExcelJS.Row, colCount: number) {
+  row.height = 26;
+  for (let c = 1; c <= colCount; c++) {
+    const cell = row.getCell(c);
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: COLORS.SLATE_SUBHEADER },
+    };
+    cell.font = {
+      name: FONT_FAMILY,
+      size: 11,
+      bold: true,
+      color: { argb: COLORS.TEXT_WHITE },
+    };
+    cell.alignment = {
+      vertical: 'middle',
+      horizontal: 'left',
+      indent: 1,
+    };
+    cell.border = BORDER_CELL;
+  }
+}
+
+/**
+ * Applies zebra striping (#F8FAFC / #FFFFFF), thin muted borders (#CBD5E1),
+ * row height = 20, and vertical: 'middle' alignment on all active data cells.
  */
 export function styleDataRow(
   row: ExcelJS.Row,
@@ -109,7 +143,7 @@ export function styleDataRow(
   colFormats?: Record<number, 'currency' | 'percent' | 'percent_1dec' | 'int' | 'string' | 'date'>,
   colCount?: number
 ) {
-  row.height = 22;
+  row.height = 20;
   const bgArgb = isEven ? COLORS.ZEBRA_BG : COLORS.WHITE_BG;
   const count = colCount || row.cellCount;
 
@@ -125,7 +159,7 @@ export function styleDataRow(
       size: 10,
       color: { argb: COLORS.TEXT_DARK },
     };
-    cell.border = BORDER_ROW_SUBTLE;
+    cell.border = BORDER_CELL;
     cell.alignment = {
       vertical: 'middle',
       horizontal: 'left',
@@ -136,10 +170,7 @@ export function styleDataRow(
       if (fmt === 'currency') {
         cell.numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
         cell.alignment = { vertical: 'middle', horizontal: 'right' };
-      } else if (fmt === 'percent') {
-        cell.numFmt = '0.00%';
-        cell.alignment = { vertical: 'middle', horizontal: 'right' };
-      } else if (fmt === 'percent_1dec') {
+      } else if (fmt === 'percent' || fmt === 'percent_1dec') {
         cell.numFmt = '0.0%';
         cell.alignment = { vertical: 'middle', horizontal: 'right' };
       } else if (fmt === 'int') {
@@ -150,6 +181,42 @@ export function styleDataRow(
       }
     }
   }
+}
+
+/**
+ * Normalizes and groups categories in title casing (e.g. merge 'Basic' and 'basic'),
+ * recalculating totals and revenue shares accurately.
+ */
+export function groupCategorySummaries(categories: CategorySummary[]): CategorySummary[] {
+  const map = new Map<string, { category: string; dealCount: number; totalSales: number; totalCommission: number }>();
+
+  for (const cat of categories) {
+    const rawName = (cat.category || 'General').trim();
+    const key = rawName.toLowerCase();
+    const titleCased = rawName.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
+
+    if (!map.has(key)) {
+      map.set(key, {
+        category: titleCased,
+        dealCount: cat.dealCount,
+        totalSales: cat.totalSales,
+        totalCommission: cat.totalCommission,
+      });
+    } else {
+      const existing = map.get(key)!;
+      existing.dealCount += cat.dealCount;
+      existing.totalSales += cat.totalSales;
+      existing.totalCommission += cat.totalCommission;
+    }
+  }
+
+  const grouped = Array.from(map.values());
+  const grandTotalSales = grouped.reduce((sum, c) => sum + c.totalSales, 0);
+
+  return grouped.map((c) => ({
+    ...c,
+    percentOfTotalSales: grandTotalSales > 0 ? (c.totalSales / grandTotalSales) * 100 : 0,
+  }));
 }
 
 /**
@@ -177,119 +244,165 @@ export async function generateExcelWorkbook(
   wb.modified = new Date();
 
   // ===========================================================================
-  // 1. SHEET: Executive Summary
+  // 1. SHEET: Executive Summary (Tab 1)
   // ===========================================================================
   if (exportOpts.includeSummarySheet) {
     const ws = wb.addWorksheet('Summary', {
-      views: [{ state: 'frozen', ySplit: 5, showGridLines: true }],
+      views: [{ state: 'frozen', ySplit: 4, showGridLines: true }],
     });
 
-    // Top Title & Meta Banner
-    const titleRow = ws.addRow(['EXECUTIVE SALES & COMMISSION SUMMARY REPORT']);
-    titleRow.height = 32;
-    titleRow.getCell(1).font = { name: FONT_FAMILY, size: 16, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-    titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
-    titleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-    ws.mergeCells('A1:G1');
+    // Main Title Banner (Height = 38, scoped to Columns A:E)
+    const titleRow = ws.addRow(['EXECUTIVE SALES & COMMISSION SUMMARY DELIVERABLE', '', '', '', '']);
+    titleRow.height = 38;
+    for (let c = 1; c <= 5; c++) {
+      const cell = titleRow.getCell(c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+      cell.font = { name: FONT_FAMILY, size: 14, bold: true, color: { argb: COLORS.TEXT_WHITE } };
+      cell.border = BORDER_CELL;
+      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    }
+    ws.mergeCells('A1:E1');
 
+    // Meta Header Rows (Height = 20, vertical: middle)
     const metaRow1 = ws.addRow(['Generated On', new Date().toLocaleString(), '', 'Audit Checksum / Hash', summary.checksum]);
     const metaRow2 = ws.addRow(['Reporting Period', `${summary.dateRange.start} to ${summary.dateRange.end}`, '', 'Commission Plan', summary.ruleSetUsed.name]);
     [metaRow1, metaRow2].forEach((r) => {
       r.height = 20;
-      r.getCell(1).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_MUTED } };
+      r.getCell(1).font = { name: FONT_FAMILY, size: 9, bold: true, color: { argb: COLORS.TEXT_MUTED } };
       r.getCell(2).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
-      r.getCell(4).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_MUTED } };
+      r.getCell(4).font = { name: FONT_FAMILY, size: 9, bold: true, color: { argb: COLORS.TEXT_MUTED } };
       r.getCell(5).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
+      for (let c = 1; c <= 5; c++) {
+        r.getCell(c).alignment = { vertical: 'middle', horizontal: c === 2 || c === 5 ? 'left' : 'left' };
+      }
+    });
+
+    ws.addRow([]); // Blank spacer row 4
+
+    // Top 4 Boxed KPI Metric Cards (Soft background #F1F5F9, bold numbers)
+    const kpiLabelRow = ws.addRow(['TOTAL GROSS SALES', 'NET ELIGIBLE VOLUME', 'TOTAL COMMISSION PAYOUT', 'TOP PERFORMER', '']);
+    kpiLabelRow.height = 20;
+    for (let c = 1; c <= 4; c++) {
+      const cell = kpiLabelRow.getCell(c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.CARD_BG } };
+      cell.font = { name: FONT_FAMILY, size: 9, bold: true, color: { argb: COLORS.TEXT_MUTED } };
+      cell.border = BORDER_CELL;
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    }
+
+    const netEligibleVolume = summary.totalQualifyingNetSales ?? summary.totalNetSales;
+    const topRepText = summary.topPerformingRep?.name ? summary.topPerformingRep.name : 'N/A';
+    const kpiValRow = ws.addRow([summary.totalGrossSales, netEligibleVolume, summary.totalCommissionPaid, topRepText, '']);
+    kpiValRow.height = 30;
+    for (let c = 1; c <= 4; c++) {
+      const cell = kpiValRow.getCell(c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.CARD_BG } };
+      cell.font = { name: FONT_FAMILY, size: 13, bold: true, color: { argb: COLORS.TEXT_DARK } };
+      cell.border = BORDER_CELL;
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      if (c === 1 || c === 2 || c === 3) {
+        cell.numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+      }
+    }
+
+    ws.addRow([]); // Blank spacer
+
+    // Section 1: Executive Sales & Commission Summary (Scoped strictly to Columns A:B)
+    const s1Header = ws.addRow(['1. EXECUTIVE FINANCIAL TOTALS', '']);
+    styleSectionHeaderRow(s1Header, 2);
+    ws.mergeCells(`A${s1Header.number}:B${s1Header.number}`);
+
+    const financialMetrics = [
+      { label: 'Total Raw Gross Sales', value: summary.totalRawGrossSales ?? summary.totalGrossSales, format: 'currency' },
+      { label: 'Total Qualifying Gross Sales', value: summary.totalQualifyingGrossSales ?? summary.totalGrossSales, format: 'currency' },
+      { label: 'Total Qualifying Net Sales', value: summary.totalQualifyingNetSales ?? summary.totalNetSales, format: 'currency' },
+      { label: 'Total Sales Discounts Granted', value: summary.totalDiscounts, format: 'currency' },
+      { label: 'Total Base Commission', value: summary.totalBaseCommission ?? (summary.totalCommissionPaid - (summary.totalBonuses ?? 0)), format: 'currency' },
+      { label: 'Total Bonuses & Accelerators', value: summary.totalBonuses ?? 0, format: 'currency' },
+      { label: 'Total Refund Clawbacks & Penalties', value: summary.totalRefundClawbacks ?? 0, format: 'currency' },
+      { label: 'Total Net Commission Payout', value: summary.totalCommissionPaid, format: 'currency' },
+      { label: 'Effective Overall Commission Rate', value: summary.averageCommissionRate, format: 'percent' },
+    ];
+
+    financialMetrics.forEach((m, idx) => {
+      const row = ws.addRow([m.label, m.value]);
+      row.height = 20;
+      const c1 = row.getCell(1);
+      const c2 = row.getCell(2);
+      c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 1 ? COLORS.ZEBRA_BG : COLORS.WHITE_BG } };
+      c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 1 ? COLORS.ZEBRA_BG : COLORS.WHITE_BG } };
+      c1.font = { name: FONT_FAMILY, size: 10, color: { argb: COLORS.TEXT_DARK } };
+      c2.font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
+      c1.border = BORDER_CELL;
+      c2.border = BORDER_CELL;
+      c1.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      c2.alignment = { vertical: 'middle', horizontal: 'right' };
+      if (m.format === 'currency') {
+        c2.numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+      } else if (m.format === 'percent') {
+        c2.numFmt = '0.0%';
+      }
     });
 
     ws.addRow([]); // Blank spacer
 
-    // Function to write a Polished Summary Metric Card Box
-    const addMetricCardSection = (sectionTitle: string, cards: Array<{ label: string; value: number | string; format?: 'currency' | 'percent' | 'int' | 'string' }>) => {
-      const sectionHeaderRow = ws.addRow([sectionTitle]);
-      sectionHeaderRow.height = 24;
-      sectionHeaderRow.getCell(1).font = { name: FONT_FAMILY, size: 11, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-      sectionHeaderRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_SUBHEADER } };
-      sectionHeaderRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-      ws.mergeCells(`A${sectionHeaderRow.number}:G${sectionHeaderRow.number}`);
+    // Section 2: Operational & Integrity Counters (Scoped to Columns A:B)
+    const s2Header = ws.addRow(['2. OPERATIONAL & INTEGRITY COUNTERS', '']);
+    styleSectionHeaderRow(s2Header, 2);
+    ws.mergeCells(`A${s2Header.number}:B${s2Header.number}`);
 
-      cards.forEach((card) => {
-        const row = ws.addRow([card.label, card.value]);
-        row.height = 22;
-        const c1 = row.getCell(1);
-        const c2 = row.getCell(2);
-
-        c1.font = { name: FONT_FAMILY, size: 10, color: { argb: COLORS.TEXT_MUTED } };
-        c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ZEBRA_BG } };
-        c1.border = BORDER_CARD;
-        c1.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-
-        c2.font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
-        c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ZEBRA_BG } };
-        c2.border = BORDER_CARD;
-
-        if (card.format === 'currency') {
-          c2.numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
-          c2.alignment = { vertical: 'middle', horizontal: 'right' };
-        } else if (card.format === 'percent') {
-          c2.numFmt = '0.00%';
-          c2.alignment = { vertical: 'middle', horizontal: 'right' };
-        } else if (card.format === 'int') {
-          c2.numFmt = '#,##0';
-          c2.alignment = { vertical: 'middle', horizontal: 'right' };
-        } else {
-          c2.alignment = { vertical: 'middle', horizontal: 'left' };
-        }
-      });
-
-      ws.addRow([]); // Blank spacer
-    };
-
-    // 1. Executive Sales & Revenue
-    addMetricCardSection('1. EXECUTIVE SALES & REVENUE TOTALS', [
-      { label: 'Total Raw Processed Sales', value: summary.totalRawGrossSales ?? summary.totalGrossSales, format: 'currency' },
-      { label: 'Total Qualifying Gross Sales', value: summary.totalQualifyingGrossSales ?? summary.totalGrossSales, format: 'currency' },
-      { label: 'Total Qualifying Net Sales', value: summary.totalQualifyingNetSales ?? summary.totalNetSales, format: 'currency' },
-      { label: 'Total Sales Discounts Granted', value: summary.totalDiscounts, format: 'currency' },
-    ]);
-
-    // 2. Commission Payout Metrics
-    addMetricCardSection('2. COMMISSION PAYOUT METRICS', [
-      { label: 'Total Net Commission Payout', value: summary.totalCommissionPaid, format: 'currency' },
-      { label: 'Total Base Commission', value: summary.totalBaseCommission ?? (summary.totalCommissionPaid - (summary.totalBonuses ?? 0)), format: 'currency' },
-      { label: 'Total Bonuses & Accelerators', value: summary.totalBonuses ?? 0, format: 'currency' },
-      { label: 'Total Refund Clawbacks & Penalties', value: summary.totalRefundClawbacks ?? 0, format: 'currency' },
-      { label: 'Overall Effective Commission Rate', value: summary.averageCommissionRate, format: 'percent' },
-    ]);
-
-    // 3. Operational Integrity Counters
-    addMetricCardSection('3. OPERATIONAL & DATA INTEGRITY COUNTERS', [
+    const operationalMetrics = [
       { label: 'Total Processed Transactions', value: summary.totalRows, format: 'int' },
       { label: 'Qualified Transactions', value: summary.qualifiedRows ?? summary.validRows, format: 'int' },
       { label: 'Excluded Transactions', value: summary.excludedRows, format: 'int' },
       { label: 'Flagged / Anomaly Transactions', value: summary.errorRows, format: 'int' },
       { label: 'Active Sales Representatives', value: summary.totalReps, format: 'int' },
-      { label: 'Top Performing Sales Representative', value: `${summary.topPerformingRep?.name || 'N/A'} ($${(summary.topPerformingRep?.sales || 0).toLocaleString()} sales | $${(summary.topPerformingRep?.commission || 0).toLocaleString()} payout)`, format: 'string' },
-    ]);
+    ];
 
-    // 4. Product Category Performance Table
-    const catHeaderSection = ws.addRow(['4. PRODUCT CATEGORY PERFORMANCE SUMMARY']);
-    catHeaderSection.height = 24;
-    catHeaderSection.getCell(1).font = { name: FONT_FAMILY, size: 11, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-    catHeaderSection.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_SUBHEADER } };
-    ws.mergeCells(`A${catHeaderSection.number}:E${catHeaderSection.number}`);
+    operationalMetrics.forEach((m, idx) => {
+      const row = ws.addRow([m.label, m.value]);
+      row.height = 20;
+      const c1 = row.getCell(1);
+      const c2 = row.getCell(2);
+      c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 1 ? COLORS.ZEBRA_BG : COLORS.WHITE_BG } };
+      c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 1 ? COLORS.ZEBRA_BG : COLORS.WHITE_BG } };
+      c1.font = { name: FONT_FAMILY, size: 10, color: { argb: COLORS.TEXT_DARK } };
+      c2.font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
+      c1.border = BORDER_CELL;
+      c2.border = BORDER_CELL;
+      c1.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      c2.alignment = { vertical: 'middle', horizontal: 'right' };
+      c2.numFmt = '#,##0';
+    });
 
-    const catHeadersRow = ws.addRow(['Category Name', 'Deal Count', 'Total Gross Sales', 'Total Commission', 'Revenue Share']);
+    ws.addRow([]); // Blank spacer
+
+    // Section 3: Clean Product Category Rollup Table (Scoped strictly to Columns A:E)
+    const s3Header = ws.addRow(['3. PRODUCT CATEGORY PERFORMANCE BREAKDOWN', '', '', '', '']);
+    styleSectionHeaderRow(s3Header, 5);
+    ws.mergeCells(`A${s3Header.number}:E${s3Header.number}`);
+
+    const catHeadersRow = ws.addRow(['Product Category', 'Deal Count', 'Total Gross Sales', 'Total Commission Paid', 'Revenue Share']);
     styleHeaderRow(catHeadersRow, 5);
 
-    const catFormats: Record<number, 'int' | 'currency' | 'currency' | 'percent_1dec'> = {
+    const groupedCategories = groupCategorySummaries(summary.categorySummaries || []);
+    const catFormats: Record<number, 'string' | 'int' | 'currency' | 'currency' | 'percent_1dec'> = {
+      0: 'string',
       1: 'int',
       2: 'currency',
       3: 'currency',
       4: 'percent_1dec',
     };
 
-    summary.categorySummaries.forEach((cat, idx) => {
+    let totalCatDeals = 0;
+    let totalCatSales = 0;
+    let totalCatCommission = 0;
+
+    groupedCategories.forEach((cat, idx) => {
+      totalCatDeals += cat.dealCount;
+      totalCatSales += cat.totalSales;
+      totalCatCommission += cat.totalCommission;
+
       const row = ws.addRow([
         cat.category,
         cat.dealCount,
@@ -300,44 +413,88 @@ export async function generateExcelWorkbook(
       styleDataRow(row, idx % 2 === 1, catFormats as any, 5);
     });
 
+    // Summary Total Row with double underline
+    const catTotalRow = ws.addRow([
+      'TOTALS',
+      totalCatDeals,
+      totalCatSales,
+      totalCatCommission,
+      totalCatSales > 0 ? 1.0 : 0.0,
+    ]);
+    catTotalRow.height = 22;
+    for (let c = 1; c <= 5; c++) {
+      const cell = catTotalRow.getCell(c);
+      cell.font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ZEBRA_BG } };
+      cell.border = BORDER_TOTAL_ROW;
+      cell.alignment = { vertical: 'middle', horizontal: c === 1 ? 'left' : 'right' };
+    }
+    catTotalRow.getCell(2).numFmt = '#,##0';
+    catTotalRow.getCell(3).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    catTotalRow.getCell(4).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    catTotalRow.getCell(5).numFmt = '0.0%';
+
     ws.addRow([]); // Blank spacer
 
-    // 5. Reporting Period Timeline Rollup Table
-    const periodHeaderSection = ws.addRow(['5. REPORTING PERIOD REVENUE & COMMISSION ROLLUP']);
-    periodHeaderSection.height = 24;
-    periodHeaderSection.getCell(1).font = { name: FONT_FAMILY, size: 11, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-    periodHeaderSection.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_SUBHEADER } };
-    ws.mergeCells(`A${periodHeaderSection.number}:H${periodHeaderSection.number}`);
+    // Section 4: Reporting Period Rollup Table (Scoped strictly to Columns A:H)
+    if (summary.periodSummaries && summary.periodSummaries.length > 0) {
+      const s4Header = ws.addRow(['4. REPORTING PERIOD REVENUE & COMMISSION ROLLUP', '', '', '', '', '', '', '']);
+      styleSectionHeaderRow(s4Header, 8);
+      ws.mergeCells(`A${s4Header.number}:H${s4Header.number}`);
 
-    const periodHeadersRow = ws.addRow(['Period Key', 'Period Label', 'Start Date', 'End Date', 'Qualified Deals', 'Gross Sales', 'Commission Payout', 'Effective Rate']);
-    styleHeaderRow(periodHeadersRow, 8);
+      const periodHeadersRow = ws.addRow(['Period Key', 'Period Label', 'Start Date', 'End Date', 'Qualified Deals', 'Gross Sales', 'Commission Payout', 'Effective Rate']);
+      styleHeaderRow(periodHeadersRow, 8);
 
-    const periodFormats: Record<number, 'string' | 'string' | 'date' | 'date' | 'int' | 'currency' | 'currency' | 'percent'> = {
-      0: 'string',
-      1: 'string',
-      2: 'date',
-      3: 'date',
-      4: 'int',
-      5: 'currency',
-      6: 'currency',
-      7: 'percent',
-    };
+      const periodFormats: Record<number, 'string' | 'string' | 'date' | 'date' | 'int' | 'currency' | 'currency' | 'percent_1dec'> = {
+        0: 'string',
+        1: 'string',
+        2: 'date',
+        3: 'date',
+        4: 'int',
+        5: 'currency',
+        6: 'currency',
+        7: 'percent_1dec',
+      };
 
-    summary.periodSummaries.forEach((p, idx) => {
-      const row = ws.addRow([
-        p.periodKey,
-        p.periodLabel,
-        p.startDate,
-        p.endDate,
-        p.qualifiedDeals,
-        p.totalGrossSales,
-        p.totalCommission,
-        p.effectiveCommissionRate,
+      summary.periodSummaries.forEach((p, idx) => {
+        const row = ws.addRow([
+          p.periodKey,
+          p.periodLabel,
+          p.startDate,
+          p.endDate,
+          p.qualifiedDeals,
+          p.totalGrossSales,
+          p.totalCommission,
+          p.effectiveCommissionRate,
+        ]);
+        styleDataRow(row, idx % 2 === 1, periodFormats as any, 8);
+      });
+
+      const pTotalRow = ws.addRow([
+        'TOTALS',
+        '',
+        '',
+        '',
+        summary.qualifiedRows ?? summary.validRows,
+        summary.totalGrossSales,
+        summary.totalCommissionPaid,
+        summary.averageCommissionRate,
       ]);
-      styleDataRow(row, idx % 2 === 1, periodFormats as any, 8);
-    });
+      pTotalRow.height = 22;
+      for (let c = 1; c <= 8; c++) {
+        const cell = pTotalRow.getCell(c);
+        cell.font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ZEBRA_BG } };
+        cell.border = BORDER_TOTAL_ROW;
+        cell.alignment = { vertical: 'middle', horizontal: c <= 4 ? 'left' : 'right' };
+      }
+      pTotalRow.getCell(5).numFmt = '#,##0';
+      pTotalRow.getCell(6).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+      pTotalRow.getCell(7).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+      pTotalRow.getCell(8).numFmt = '0.0%';
+    }
 
-    autoFitColumnsWithPadding(ws, 4, 16);
+    autoFitColumnsWithPadding(ws, 16, 34);
   }
 
   // ===========================================================================
@@ -348,16 +505,24 @@ export async function generateExcelWorkbook(
       views: [{ state: 'frozen', ySplit: 4, showGridLines: true }],
     });
 
-    // Sheet Banner
-    const banner = ws.addRow(['CLEANED & NORMALIZED SALES DATASET']);
-    banner.height = 28;
-    banner.getCell(1).font = { name: FONT_FAMILY, size: 14, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-    banner.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+    // Sheet Banner (Height = 38)
+    const banner = ws.addRow(['CLEANED & NORMALIZED SALES DATASET', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    banner.height = 38;
+    for (let c = 1; c <= 14; c++) {
+      const cell = banner.getCell(c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+      cell.font = { name: FONT_FAMILY, size: 13, bold: true, color: { argb: COLORS.TEXT_WHITE } };
+      cell.border = BORDER_CELL;
+      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    }
     ws.mergeCells('A1:N1');
 
     const meta = ws.addRow([`Total Source Records: ${summary.totalRows}`, `Generated: ${summary.processedAt}`, '', '', '', '', '', '', '', '', '', '', '', '']);
-    meta.height = 18;
+    meta.height = 20;
     meta.getCell(1).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_MUTED } };
+    for (let c = 1; c <= 14; c++) {
+      meta.getCell(c).alignment = { vertical: 'middle', horizontal: 'left' };
+    }
 
     ws.addRow([]); // Blank spacer
 
@@ -381,7 +546,7 @@ export async function generateExcelWorkbook(
     const headerRow = ws.addRow(cleanedHeaders);
     styleHeaderRow(headerRow, cleanedHeaders.length);
 
-    const cleanedFormats: Record<number, 'int' | 'string' | 'date' | 'string' | 'string' | 'string' | 'string' | 'currency' | 'currency' | 'currency' | 'percent' | 'string' | 'int' | 'string'> = {
+    const cleanedFormats: Record<number, 'int' | 'string' | 'date' | 'string' | 'string' | 'string' | 'string' | 'currency' | 'currency' | 'currency' | 'percent_1dec' | 'string' | 'int' | 'string'> = {
       0: 'int',
       1: 'string',
       2: 'date',
@@ -392,7 +557,7 @@ export async function generateExcelWorkbook(
       7: 'currency',
       8: 'currency',
       9: 'currency',
-      10: 'percent',
+      10: 'percent_1dec',
       11: 'string',
       12: 'int',
       13: 'string',
@@ -419,27 +584,35 @@ export async function generateExcelWorkbook(
       styleDataRow(row, idx % 2 === 1, cleanedFormats as any, cleanedHeaders.length);
     });
 
-    autoFitColumnsWithPadding(ws, 4, 12);
+    autoFitColumnsWithPadding(ws, 16, 16);
   }
 
   // ===========================================================================
-  // 3. SHEET: Commission Results (Audit Ledger)
+  // 3. SHEET: Commission Results (Detailed Audit Ledger)
   // ===========================================================================
   if (exportOpts.includeCommissionResultsSheet) {
     const ws = wb.addWorksheet('Commission Results', {
       views: [{ state: 'frozen', ySplit: 4, showGridLines: true }],
     });
 
-    // Sheet Banner
-    const banner = ws.addRow(['COMMISSION CALCULATION RESULTS & DETAILED AUDIT LEDGER']);
-    banner.height = 28;
-    banner.getCell(1).font = { name: FONT_FAMILY, size: 14, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-    banner.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+    // Sheet Banner (Height = 38)
+    const banner = ws.addRow(['COMMISSION CALCULATION RESULTS & DETAILED AUDIT LEDGER', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    banner.height = 38;
+    for (let c = 1; c <= 25; c++) {
+      const cell = banner.getCell(c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+      cell.font = { name: FONT_FAMILY, size: 13, bold: true, color: { argb: COLORS.TEXT_WHITE } };
+      cell.border = BORDER_CELL;
+      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    }
     ws.mergeCells('A1:Y1');
 
     const meta = ws.addRow([`Audit Checksum: ${summary.checksum}`, `Commission Plan: ${summary.ruleSetUsed.name}`, `Processed Records: ${summary.totalRows}`]);
-    meta.height = 18;
+    meta.height = 20;
     meta.getCell(1).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_MUTED } };
+    for (let c = 1; c <= 25; c++) {
+      meta.getCell(c).alignment = { vertical: 'middle', horizontal: 'left' };
+    }
 
     ws.addRow([]); // Blank spacer
 
@@ -474,7 +647,7 @@ export async function generateExcelWorkbook(
     const headerRow = ws.addRow(commHeaders);
     styleHeaderRow(headerRow, commHeaders.length);
 
-    const commFormats: Record<number, 'int' | 'string' | 'date' | 'string' | 'string' | 'string' | 'string' | 'string' | 'string' | 'string' | 'currency' | 'currency' | 'currency' | 'currency' | 'percent' | 'percent' | 'currency' | 'currency' | 'currency' | 'currency' | 'currency' | 'currency' | 'string' | 'string' | 'string'> = {
+    const commFormats: Record<number, 'int' | 'string' | 'date' | 'string' | 'string' | 'string' | 'string' | 'string' | 'string' | 'string' | 'currency' | 'currency' | 'currency' | 'currency' | 'percent_1dec' | 'percent_1dec' | 'currency' | 'currency' | 'currency' | 'currency' | 'currency' | 'currency' | 'string' | 'string' | 'string'> = {
       0: 'int',
       1: 'string',
       2: 'date',
@@ -489,8 +662,8 @@ export async function generateExcelWorkbook(
       11: 'currency',
       12: 'currency',
       13: 'currency',
-      14: 'percent',
-      15: 'percent',
+      14: 'percent_1dec',
+      15: 'percent_1dec',
       16: 'currency',
       17: 'currency',
       18: 'currency',
@@ -535,7 +708,7 @@ export async function generateExcelWorkbook(
       styleDataRow(row, idx % 2 === 1, commFormats as any, commHeaders.length);
     });
 
-    // Total Summary Row
+    // Summary Total Row with Double-Underline
     const totalRow = ws.addRow([
       'TOTALS',
       '',
@@ -563,22 +736,23 @@ export async function generateExcelWorkbook(
       '',
       '',
     ]);
-    totalRow.height = 26;
+    totalRow.height = 24;
     for (let c = 1; c <= commHeaders.length; c++) {
       const cell = totalRow.getCell(c);
       cell.font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ZEBRA_BG } };
       cell.border = BORDER_TOTAL_ROW;
+      cell.alignment = { vertical: 'middle', horizontal: c <= 10 ? 'left' : 'right' };
     }
-    totalRow.getCell(11).numFmt = '$#,##0.00';
-    totalRow.getCell(12).numFmt = '$#,##0.00';
-    totalRow.getCell(13).numFmt = '$#,##0.00';
-    totalRow.getCell(16).numFmt = '0.00%';
-    totalRow.getCell(17).numFmt = '$#,##0.00';
-    totalRow.getCell(21).numFmt = '$#,##0.00';
-    totalRow.getCell(22).numFmt = '$#,##0.00';
+    totalRow.getCell(11).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    totalRow.getCell(12).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    totalRow.getCell(13).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    totalRow.getCell(16).numFmt = '0.0%';
+    totalRow.getCell(17).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    totalRow.getCell(21).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    totalRow.getCell(22).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
 
-    autoFitColumnsWithPadding(ws, 4, 14);
+    autoFitColumnsWithPadding(ws, 16, 16);
   }
 
   // ===========================================================================
@@ -589,16 +763,24 @@ export async function generateExcelWorkbook(
       views: [{ state: 'frozen', ySplit: 4, showGridLines: true }],
     });
 
-    // Sheet Banner
-    const banner = ws.addRow(['DATA QUALITY, ANOMALIES & AUDIT ISSUES LOG']);
-    banner.height = 28;
-    banner.getCell(1).font = { name: FONT_FAMILY, size: 14, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-    banner.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+    // Sheet Banner (Height = 38)
+    const banner = ws.addRow(['DATA QUALITY, ANOMALIES & AUDIT ISSUES LOG', '', '', '', '', '', '', '', '', '']);
+    banner.height = 38;
+    for (let c = 1; c <= 10; c++) {
+      const cell = banner.getCell(c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+      cell.font = { name: FONT_FAMILY, size: 13, bold: true, color: { argb: COLORS.TEXT_WHITE } };
+      cell.border = BORDER_CELL;
+      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    }
     ws.mergeCells('A1:J1');
 
     const meta = ws.addRow([`Total Validation Issues Detected: ${summary.allIssues.length}`, '', '', '', '', '', '', '', '', '']);
-    meta.height = 18;
+    meta.height = 20;
     meta.getCell(1).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_MUTED } };
+    for (let c = 1; c <= 10; c++) {
+      meta.getCell(c).alignment = { vertical: 'middle', horizontal: 'left' };
+    }
 
     ws.addRow([]); // Blank spacer
 
@@ -656,7 +838,7 @@ export async function generateExcelWorkbook(
       }
     });
 
-    autoFitColumnsWithPadding(ws, 4, 14);
+    autoFitColumnsWithPadding(ws, 16, 16);
   }
 
   // ===========================================================================
@@ -667,16 +849,24 @@ export async function generateExcelWorkbook(
       views: [{ state: 'frozen', ySplit: 4, showGridLines: true }],
     });
 
-    // Sheet Banner
-    const banner = ws.addRow(['TOTALS BY SALESPERSON (COMMISSION EARNINGS & QUOTAS)']);
-    banner.height = 28;
-    banner.getCell(1).font = { name: FONT_FAMILY, size: 14, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-    banner.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+    // Sheet Banner (Height = 38)
+    const banner = ws.addRow(['TOTALS BY SALESPERSON (COMMISSION EARNINGS & QUOTAS)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    banner.height = 38;
+    for (let c = 1; c <= 16; c++) {
+      const cell = banner.getCell(c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+      cell.font = { name: FONT_FAMILY, size: 13, bold: true, color: { argb: COLORS.TEXT_WHITE } };
+      cell.border = BORDER_CELL;
+      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    }
     ws.mergeCells('A1:P1');
 
     const meta = ws.addRow([`Commission Plan: ${summary.ruleSetUsed.name}`, `Generated: ${summary.processedAt}`]);
-    meta.height = 18;
+    meta.height = 20;
     meta.getCell(1).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_MUTED } };
+    for (let c = 1; c <= 16; c++) {
+      meta.getCell(c).alignment = { vertical: 'middle', horizontal: 'left' };
+    }
 
     ws.addRow([]); // Blank spacer
 
@@ -702,7 +892,7 @@ export async function generateExcelWorkbook(
     const headerRow = ws.addRow(repHeaders);
     styleHeaderRow(headerRow, repHeaders.length);
 
-    const repFormats: Record<number, 'string' | 'int' | 'int' | 'int' | 'int' | 'currency' | 'currency' | 'currency' | 'currency' | 'currency' | 'currency' | 'percent' | 'currency' | 'percent_1dec' | 'currency' | 'int'> = {
+    const repFormats: Record<number, 'string' | 'int' | 'int' | 'int' | 'int' | 'currency' | 'currency' | 'currency' | 'currency' | 'currency' | 'currency' | 'percent_1dec' | 'currency' | 'percent_1dec' | 'currency' | 'int'> = {
       0: 'string',
       1: 'int',
       2: 'int',
@@ -714,7 +904,7 @@ export async function generateExcelWorkbook(
       8: 'currency',
       9: 'currency',
       10: 'currency',
-      11: 'percent',
+      11: 'percent_1dec',
       12: 'currency',
       13: 'percent_1dec',
       14: 'currency',
@@ -744,7 +934,7 @@ export async function generateExcelWorkbook(
       styleDataRow(row, idx % 2 === 1, repFormats as any, repHeaders.length);
     });
 
-    // Summary Total Row
+    // Summary Total Row with Double Underline
     const avgDeal = (summary.qualifiedRows ?? summary.validRows) > 0 ? summary.totalGrossSales / (summary.qualifiedRows ?? summary.validRows) : 0;
     const repTotalRow = ws.addRow([
       'TOTALS',
@@ -764,28 +954,29 @@ export async function generateExcelWorkbook(
       avgDeal,
       summary.allIssues.length,
     ]);
-    repTotalRow.height = 26;
+    repTotalRow.height = 24;
     for (let c = 1; c <= repHeaders.length; c++) {
       const cell = repTotalRow.getCell(c);
       cell.font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ZEBRA_BG } };
       cell.border = BORDER_TOTAL_ROW;
+      cell.alignment = { vertical: 'middle', horizontal: c === 1 ? 'left' : 'right' };
     }
     repTotalRow.getCell(2).numFmt = '#,##0';
     repTotalRow.getCell(3).numFmt = '#,##0';
     repTotalRow.getCell(4).numFmt = '#,##0';
     repTotalRow.getCell(5).numFmt = '#,##0';
-    repTotalRow.getCell(6).numFmt = '$#,##0.00';
-    repTotalRow.getCell(7).numFmt = '$#,##0.00';
-    repTotalRow.getCell(8).numFmt = '$#,##0.00';
-    repTotalRow.getCell(9).numFmt = '$#,##0.00';
-    repTotalRow.getCell(10).numFmt = '$#,##0.00';
-    repTotalRow.getCell(11).numFmt = '$#,##0.00';
-    repTotalRow.getCell(12).numFmt = '0.00%';
-    repTotalRow.getCell(15).numFmt = '$#,##0.00';
+    repTotalRow.getCell(6).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    repTotalRow.getCell(7).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    repTotalRow.getCell(8).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    repTotalRow.getCell(9).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    repTotalRow.getCell(10).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    repTotalRow.getCell(11).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    repTotalRow.getCell(12).numFmt = '0.0%';
+    repTotalRow.getCell(15).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
     repTotalRow.getCell(16).numFmt = '#,##0';
 
-    autoFitColumnsWithPadding(ws, 4, 14);
+    autoFitColumnsWithPadding(ws, 16, 24);
   }
 
   // ===========================================================================
@@ -796,16 +987,24 @@ export async function generateExcelWorkbook(
       views: [{ state: 'frozen', ySplit: 4, showGridLines: true }],
     });
 
-    // Sheet Banner
-    const banner = ws.addRow(['TOTALS BY REPORTING PERIOD (TIMELINE SUMMARY)']);
-    banner.height = 28;
-    banner.getCell(1).font = { name: FONT_FAMILY, size: 14, bold: true, color: { argb: COLORS.TEXT_WHITE } };
-    banner.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+    // Sheet Banner (Height = 38)
+    const banner = ws.addRow(['TOTALS BY REPORTING PERIOD (TIMELINE SUMMARY)', '', '', '', '', '', '', '', '', '', '', '', '']);
+    banner.height = 38;
+    for (let c = 1; c <= 13; c++) {
+      const cell = banner.getCell(c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.NAVY_HEADER } };
+      cell.font = { name: FONT_FAMILY, size: 13, bold: true, color: { argb: COLORS.TEXT_WHITE } };
+      cell.border = BORDER_CELL;
+      cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    }
     ws.mergeCells('A1:M1');
 
     const meta = ws.addRow([`Reporting Granularity: ${summary.ruleSetUsed.reportingPeriod?.granularity || 'all_dates'}`, `Generated: ${summary.processedAt}`]);
-    meta.height = 18;
+    meta.height = 20;
     meta.getCell(1).font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_MUTED } };
+    for (let c = 1; c <= 13; c++) {
+      meta.getCell(c).alignment = { vertical: 'middle', horizontal: 'left' };
+    }
 
     ws.addRow([]); // Blank spacer
 
@@ -828,7 +1027,7 @@ export async function generateExcelWorkbook(
     const headerRow = ws.addRow(periodHeaders);
     styleHeaderRow(headerRow, periodHeaders.length);
 
-    const periodFormats: Record<number, 'string' | 'string' | 'date' | 'date' | 'int' | 'int' | 'int' | 'int' | 'currency' | 'currency' | 'currency' | 'percent' | 'int'> = {
+    const periodFormats: Record<number, 'string' | 'string' | 'date' | 'date' | 'int' | 'int' | 'int' | 'int' | 'currency' | 'currency' | 'currency' | 'percent_1dec' | 'int'> = {
       0: 'string',
       1: 'string',
       2: 'date',
@@ -840,7 +1039,7 @@ export async function generateExcelWorkbook(
       8: 'currency',
       9: 'currency',
       10: 'currency',
-      11: 'percent',
+      11: 'percent_1dec',
       12: 'int',
     };
 
@@ -864,7 +1063,7 @@ export async function generateExcelWorkbook(
       styleDataRow(row, idx % 2 === 1, periodFormats as any, periodHeaders.length);
     });
 
-    // Summary Total Row
+    // Summary Total Row with Double Underline
     const periodTotalRow = ws.addRow([
       'TOTALS',
       '',
@@ -880,24 +1079,25 @@ export async function generateExcelWorkbook(
       summary.averageCommissionRate,
       summary.totalReps,
     ]);
-    periodTotalRow.height = 26;
+    periodTotalRow.height = 24;
     for (let c = 1; c <= periodHeaders.length; c++) {
       const cell = periodTotalRow.getCell(c);
       cell.font = { name: FONT_FAMILY, size: 10, bold: true, color: { argb: COLORS.TEXT_DARK } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.ZEBRA_BG } };
       cell.border = BORDER_TOTAL_ROW;
+      cell.alignment = { vertical: 'middle', horizontal: c <= 4 ? 'left' : 'right' };
     }
     periodTotalRow.getCell(5).numFmt = '#,##0';
     periodTotalRow.getCell(6).numFmt = '#,##0';
     periodTotalRow.getCell(7).numFmt = '#,##0';
     periodTotalRow.getCell(8).numFmt = '#,##0';
-    periodTotalRow.getCell(9).numFmt = '$#,##0.00';
-    periodTotalRow.getCell(10).numFmt = '$#,##0.00';
-    periodTotalRow.getCell(11).numFmt = '$#,##0.00';
-    periodTotalRow.getCell(12).numFmt = '0.00%';
+    periodTotalRow.getCell(9).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    periodTotalRow.getCell(10).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    periodTotalRow.getCell(11).numFmt = '$#,##0.00;($#,##0.00);"$0.00"';
+    periodTotalRow.getCell(12).numFmt = '0.0%';
     periodTotalRow.getCell(13).numFmt = '#,##0';
 
-    autoFitColumnsWithPadding(ws, 4, 14);
+    autoFitColumnsWithPadding(ws, 16, 22);
   }
 
   return wb;
