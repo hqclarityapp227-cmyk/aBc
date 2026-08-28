@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { STORAGE_KEY_PRO_UNLOCKED, STORAGE_KEY_LICENSE } from '../components/ProUpgradeModal';
+import {
+  checkIsProUnlocked,
+  revokeLicense,
+  STORAGE_KEY_LICENSE,
+} from '../engine/licenseValidator';
 
 export function useProLicense() {
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY_PRO_UNLOCKED) === 'true';
-    } catch {
-      return false;
-    }
+    return checkIsProUnlocked();
   });
 
   const [licenseKey, setLicenseKey] = useState<string>(() => {
@@ -24,14 +24,15 @@ export function useProLicense() {
   // Sync state across browser events or storage changes
   useEffect(() => {
     const checkStorage = () => {
+      const unlocked = checkIsProUnlocked();
+      let key = '';
       try {
-        const unlocked = localStorage.getItem(STORAGE_KEY_PRO_UNLOCKED) === 'true';
-        const key = localStorage.getItem(STORAGE_KEY_LICENSE) || '';
-        setIsUnlocked(unlocked);
-        setLicenseKey(key);
+        key = localStorage.getItem(STORAGE_KEY_LICENSE) || '';
       } catch {
         // ignore
       }
+      setIsUnlocked(unlocked);
+      setLicenseKey(key);
     };
 
     window.addEventListener('storage', checkStorage);
@@ -53,14 +54,15 @@ export function useProLicense() {
   }, []);
 
   const handleUnlockedSuccess = useCallback(() => {
+    const unlocked = checkIsProUnlocked();
+    let key = '';
     try {
-      const unlocked = localStorage.getItem(STORAGE_KEY_PRO_UNLOCKED) === 'true';
-      const key = localStorage.getItem(STORAGE_KEY_LICENSE) || '';
-      setIsUnlocked(unlocked);
-      setLicenseKey(key);
+      key = localStorage.getItem(STORAGE_KEY_LICENSE) || '';
     } catch {
-      setIsUnlocked(true);
+      // ignore
     }
+    setIsUnlocked(unlocked);
+    setLicenseKey(key);
 
     if (pendingCallback) {
       const cb = pendingCallback;
@@ -70,12 +72,7 @@ export function useProLicense() {
   }, [pendingCallback]);
 
   const lock = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY_PRO_UNLOCKED);
-      localStorage.removeItem(STORAGE_KEY_LICENSE);
-    } catch {
-      // ignore
-    }
+    revokeLicense();
     setIsUnlocked(false);
     setLicenseKey('');
   }, []);
@@ -90,3 +87,4 @@ export function useProLicense() {
     lock,
   };
 }
+

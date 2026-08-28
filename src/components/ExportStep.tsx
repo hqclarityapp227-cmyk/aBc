@@ -43,12 +43,21 @@ export const ExportStep: React.FC<ExportStepProps> = ({
 
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  const executeDownloadXLSX = () => {
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const fileName = `Commission_Report_${timestamp}.xlsx`;
-    downloadExcelWorkbook(summary, fileName, options);
-    setDownloadSuccess(true);
-    setTimeout(() => setDownloadSuccess(false), 5000);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const executeDownloadXLSX = async () => {
+    try {
+      setIsGenerating(true);
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const fileName = `Commission_Report_${timestamp}.xlsx`;
+      await downloadExcelWorkbook(summary, fileName, options);
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 5000);
+    } catch (err) {
+      console.error('Failed to generate Excel workbook:', err);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleDownloadXLSX = () => {
@@ -164,14 +173,20 @@ export const ExportStep: React.FC<ExportStepProps> = ({
             <button
               type="button"
               id="btn-download-xlsx"
+              disabled={isGenerating}
               onClick={handleDownloadXLSX}
               className={`w-full py-3.5 ${
                 isUnlocked
                   ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
                   : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
-              } font-extrabold text-sm rounded-xl transition shadow-md flex items-center justify-center space-x-2 cursor-pointer`}
+              } font-extrabold text-sm rounded-xl transition shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60`}
             >
-              {isUnlocked ? (
+              {isGenerating ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  <span>Generating Executive Excel Report...</span>
+                </>
+              ) : isUnlocked ? (
                 <>
                   <Download className="w-5 h-5" />
                   <span>Download Finished Excel Workbook (.xlsx)</span>

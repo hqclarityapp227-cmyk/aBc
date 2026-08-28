@@ -11,10 +11,15 @@ import {
   AlertCircle,
   FileSpreadsheet,
 } from 'lucide-react';
+import {
+  validateLicenseKey,
+  persistValidatedLicense,
+  STORAGE_KEY_PRO_UNLOCKED,
+  STORAGE_KEY_LICENSE,
+} from '../engine/licenseValidator';
 
+export { STORAGE_KEY_PRO_UNLOCKED, STORAGE_KEY_LICENSE };
 export const WHOP_CHECKOUT_URL = 'https://whop.com/salty-flamingo/commission-engine-pro-74/';
-export const STORAGE_KEY_PRO_UNLOCKED = 'commission_engine_pro_unlocked';
-export const STORAGE_KEY_LICENSE = 'commission_engine_license_key';
 
 interface ProUpgradeModalProps {
   isOpen: boolean;
@@ -37,23 +42,16 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
     e.preventDefault();
     const trimmed = inputKey.trim();
 
-    if (!trimmed) {
-      setErrorMsg('Please enter your Whop License Key to unlock.');
+    // Use strict mathematical and admin key validation
+    const validation = validateLicenseKey(trimmed);
+
+    if (!validation.isValid) {
+      setErrorMsg(validation.error || 'Invalid License Key. Please check your key or purchase a pass on Whop.');
       return;
     }
 
-    if (trimmed.length < 4) {
-      setErrorMsg('Please enter a valid license key (at least 4 characters).');
-      return;
-    }
-
-    // Save unlocked state in browser localStorage
-    try {
-      localStorage.setItem(STORAGE_KEY_PRO_UNLOCKED, 'true');
-      localStorage.setItem(STORAGE_KEY_LICENSE, trimmed);
-    } catch {
-      // ignore storage errors if private mode
-    }
+    // Save strictly validated license state in browser localStorage
+    persistValidatedLicense(validation.formattedKey || trimmed);
 
     setErrorMsg(null);
     setSuccessMsg(true);
@@ -63,8 +61,9 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
       if (onUnlockedSuccess) {
         onUnlockedSuccess();
       }
-    }, 900);
+    }, 800);
   };
+
 
   const handleOpenWhopCheckout = () => {
     window.open(WHOP_CHECKOUT_URL, '_blank', 'noopener,noreferrer');

@@ -58,14 +58,14 @@ function assertCloseTo(actual: number, expected: number, delta: number, message:
   }
 }
 
-export function runEndToEndReliabilityTests() {
+export async function runEndToEndReliabilityTests() {
   console.log('🧪 Starting Comprehensive End-to-End Reliability & Stress Test Suite...\n');
   let passed = 0;
   let failed = 0;
 
-  const test = (name: string, fn: () => void) => {
+  const test = async (name: string, fn: () => void | Promise<void>) => {
     try {
-      fn();
+      await fn();
       console.log(`  ✓ ${name}`);
       passed++;
     } catch (err: any) {
@@ -210,7 +210,7 @@ export function runEndToEndReliabilityTests() {
   // =========================================================================
   console.log('\n5. Full Multi-Month, Multi-Rep Dataset Processing with All Edge Cases:');
 
-  test('Processes complex 14-row dataset containing all real-world edge cases without data loss', () => {
+  test('Processes complex 14-row dataset containing all real-world edge cases without data loss', async () => {
     const rawDataRows: Record<string, unknown>[] = [
       // Row 1: Clean standard sale - Sarah Jenkins (July 2024)
       {
@@ -539,7 +539,7 @@ export function runEndToEndReliabilityTests() {
     assertEqual(summary.checksum, secondSummary.checksum, 'Deterministic checksum identical on recalculation');
 
     // 6. Excel Generation & All 6 Sheets Verification
-    const workbook = generateExcelWorkbook(summary);
+    const workbook = await generateExcelWorkbook(summary);
     const expectedSheets = [
       'Summary',
       'Cleaned Data',
@@ -549,12 +549,12 @@ export function runEndToEndReliabilityTests() {
       'Period Summary',
     ];
 
+    const sheetNames = workbook.worksheets.map((ws) => ws.name);
     expectedSheets.forEach((sheetName) => {
-      assert(workbook.SheetNames.includes(sheetName), `Excel workbook contains sheet "${sheetName}"`);
-      const ws = workbook.Sheets[sheetName];
+      assert(sheetNames.includes(sheetName), `Excel workbook contains sheet "${sheetName}"`);
+      const ws = workbook.getWorksheet(sheetName);
       assert(ws !== undefined, `Worksheet "${sheetName}" is defined`);
-      const jsonRows = XLSX.utils.sheet_to_json(ws);
-      assert(jsonRows.length > 0, `Worksheet "${sheetName}" contains structured rows`);
+      assert(ws.rowCount > 0, `Worksheet "${sheetName}" contains structured rows`);
     });
 
     // 7. CSV Export Verification
