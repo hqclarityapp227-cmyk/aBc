@@ -9,7 +9,6 @@ import {
   X,
   ExternalLink,
 } from 'lucide-react';
-import { WHOP_CHECKOUT_URL } from '../ProUpgradeModal';
 
 interface LandingNavbarProps {
   onLaunchApp: () => void;

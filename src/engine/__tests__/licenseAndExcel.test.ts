@@ -5,6 +5,11 @@ import {
 import { generateExcelWorkbook } from '../excelGenerator';
 import { ProcessingSummary, CommissionRuleSet } from '../../types';
 import { DEFAULT_TIERED_RULESET } from '../businessRules';
+import {
+  extractAffiliateCodeFromQuery,
+  getWhopCheckoutUrl,
+  WHOP_CHECKOUT_URL,
+} from '../../utils/whopAffiliate';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -13,9 +18,38 @@ function assert(condition: boolean, message: string) {
 }
 
 export async function runLicenseAndExcelTests() {
-  console.log('\n🧪 Starting License Security & Executive Excel Engine Test Suite...\n');
+  console.log('\n🧪 Starting License Security, Whop Affiliate Attribution & Executive Excel Test Suite...\n');
 
-  console.log('1. Paywall License Key Validation Tests:');
+  console.log('1. Whop Affiliate Attribution & Checkout Parameter Tests:');
+
+  // Query extraction tests
+  const affiliateA = extractAffiliateCodeFromQuery('?a=partner_top_seller');
+  assert(affiliateA === 'partner_top_seller', 'Must extract ?a= param correctly');
+
+  const affiliateAlias = extractAffiliateCodeFromQuery('?affiliate=sarah_sales');
+  assert(affiliateAlias === 'sarah_sales', 'Must extract ?affiliate= param correctly');
+
+  const affiliateWhop = extractAffiliateCodeFromQuery('?whop_affiliate=top_affiliate');
+  assert(affiliateWhop === 'top_affiliate', 'Must extract ?whop_affiliate= param correctly');
+
+  const affiliateLeadingAt = extractAffiliateCodeFromQuery('?a=@john_doe');
+  assert(affiliateLeadingAt === 'john_doe', 'Must strip leading @ character from handle');
+
+  const fullUrlQuery = extractAffiliateCodeFromQuery('https://mysite.netlify.app/app?a=affiliate_123&utm_source=twitter');
+  assert(fullUrlQuery === 'affiliate_123', 'Must extract ?a= from full absolute URL');
+
+  const noAffiliate = extractAffiliateCodeFromQuery('?utm_source=google&page=1');
+  assert(noAffiliate === null, 'Must return null when no affiliate parameter exists');
+
+  // Checkout URL construction tests without affiliate
+  const directCheckout = getWhopCheckoutUrl(WHOP_CHECKOUT_URL);
+  assert(directCheckout === WHOP_CHECKOUT_URL, 'Must return base checkout URL when no affiliate code is present');
+
+  console.log('  ✓ Correctly detects and extracts Whop affiliate query parameters (?a=, ?affiliate=)');
+  console.log('  ✓ Sanitizes affiliate usernames and handles leading @ symbols');
+  console.log('  ✓ Preserves original checkout URL when no affiliate parameter is present');
+
+  console.log('\n2. Paywall License Key Validation Tests:');
 
   // Basic Format & Non-empty Key Checks
   const validKeyFormat = validateLicenseKey('whop_license_key_active_9981');

@@ -7,7 +7,7 @@ import {
   Lock,
   ExternalLink,
 } from 'lucide-react';
-import { WHOP_CHECKOUT_URL } from '../ProUpgradeModal';
+import { WHOP_CHECKOUT_URL, getWhopCheckoutUrl } from '../../utils/whopAffiliate';
 
 interface LandingFooterProps {
   onLaunchApp: () => void;
@@ -114,7 +114,7 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
             <ul className="space-y-2 text-xs">
               <li>
                 <a
-                  href={WHOP_CHECKOUT_URL}
+                  href={getWhopCheckoutUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-emerald-400 transition flex items-center gap-1"

@@ -18,9 +18,12 @@ import {
   STORAGE_KEY_PRO_UNLOCKED,
   STORAGE_KEY_LICENSE,
 } from '../engine/licenseValidator';
+import {
+  WHOP_CHECKOUT_URL,
+  getWhopCheckoutUrl,
+} from '../utils/whopAffiliate';
 
-export { STORAGE_KEY_PRO_UNLOCKED, STORAGE_KEY_LICENSE };
-export const WHOP_CHECKOUT_URL = 'https://whop.com/salty-flamingo/commission-engine-pro-74/';
+export { STORAGE_KEY_PRO_UNLOCKED, STORAGE_KEY_LICENSE, WHOP_CHECKOUT_URL, getWhopCheckoutUrl };
 
 interface ProUpgradeModalProps {
   isOpen: boolean;
@@ -83,7 +86,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
 
 
   const handleOpenWhopCheckout = () => {
-    window.open(WHOP_CHECKOUT_URL, '_blank', 'noopener,noreferrer');
+    window.open(getWhopCheckoutUrl(), '_blank', 'noopener,noreferrer');
   };
 
   return (

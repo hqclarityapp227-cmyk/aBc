@@ -12,7 +12,7 @@ import {
   ShieldCheck,
   ExternalLink,
 } from 'lucide-react';
-import { WHOP_CHECKOUT_URL } from './ProUpgradeModal';
+import { WHOP_CHECKOUT_URL, getWhopCheckoutUrl } from '../utils/whopAffiliate';
 
 interface NavbarProps {
   currentStep: number;
@@ -103,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="flex items-center space-x-1.5">
                 <a
                   id="btn-nav-upgrade-whop-link"
-                  href={WHOP_CHECKOUT_URL}
+                  href={getWhopCheckoutUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 text-xs font-extrabold rounded-lg shadow-sm transition cursor-pointer"

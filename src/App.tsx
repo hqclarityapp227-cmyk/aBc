@@ -27,6 +27,7 @@ import { calculateAllRecords } from './engine/calculationEngine';
 import { generateProcessingSummary } from './engine/reportingEngine';
 import { DEFAULT_TIERED_RULESET } from './engine/businessRules';
 import { formatErrorMessage } from './engine/errors';
+import { captureAndPersistWhopAffiliate } from './utils/whopAffiliate';
 
 export default function App() {
   // Navigation View: Landing page at root ('/'), Tool at ('/app')
@@ -60,6 +61,11 @@ export default function App() {
     handleUnlockedSuccess,
   } = useProLicense();
 
+  // Capture Whop affiliate query parameter on app mount
+  useEffect(() => {
+    captureAndPersistWhopAffiliate();
+  }, []);
+
   // Listen to browser forward/back buttons
   useEffect(() => {
     const handlePopState = () => {
@@ -89,8 +95,9 @@ export default function App() {
   const navigateToApp = () => {
     setCurrentView('app');
     if (window.location.pathname !== '/app') {
+      const search = typeof window !== 'undefined' ? window.location.search : '';
       try {
-        window.history.pushState({ view: 'app' }, '', '/app');
+        window.history.pushState({ view: 'app' }, '', `/app${search}`);
       } catch {
         window.location.hash = 'app';
       }
@@ -102,8 +109,9 @@ export default function App() {
   const navigateToLanding = () => {
     setCurrentView('landing');
     if (window.location.pathname !== '/') {
+      const search = typeof window !== 'undefined' ? window.location.search : '';
       try {
-        window.history.pushState({ view: 'landing' }, '', '/');
+        window.history.pushState({ view: 'landing' }, '', `/${search}`);
       } catch {
         window.location.hash = '';
       }

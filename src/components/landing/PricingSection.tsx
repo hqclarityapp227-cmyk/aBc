@@ -9,7 +9,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { WHOP_CHECKOUT_URL } from '../ProUpgradeModal';
+import { WHOP_CHECKOUT_URL, getWhopCheckoutUrl } from '../../utils/whopAffiliate';
 
 interface PricingSectionProps {
   onLaunchApp: () => void;
@@ -177,7 +177,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
                 <>
                   <a
                     id="pricing-btn-whop-checkout"
-                    href={WHOP_CHECKOUT_URL}
+                    href={getWhopCheckoutUrl()}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-950/40 transition hover:scale-[1.02] flex items-center justify-center space-x-2 cursor-pointer"
