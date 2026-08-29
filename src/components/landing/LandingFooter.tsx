@@ -29,10 +29,10 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
         <div className="rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border border-emerald-500/30 p-8 sm:p-12 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-center md:text-left">
             <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Ready to automate your commission payroll?
+              Ready to automate your sales & commission reporting?
             </h3>
             <p className="text-sm text-slate-300 max-w-xl">
-              Upload your raw sales spreadsheet and calculate flawless commissions in under 10 seconds.
+              Turn raw sales data into a finished, structured Excel report in seconds. 100% in-browser privacy.
             </p>
           </div>
 
@@ -73,7 +73,7 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
-              The automated commission engine that cleans messy sales exports, executes deterministic multi-tier plans, and generates presentation-ready Excel deliverables.
+              The automated workflow that takes messy raw sales exports, normalizes inconsistent data, applies reporting rules, and generates finished executive Excel workbooks.
             </p>
             <div className="flex items-center space-x-1 text-xs text-emerald-400">
               <Lock className="w-3.5 h-3.5" />
