@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { LandingPage } from './components/landing/LandingPage';
 import { Navbar } from './components/Navbar';
 import { UploadStep } from './components/UploadStep';
 import { MappingStep } from './components/MappingStep';
@@ -28,6 +29,19 @@ import { DEFAULT_TIERED_RULESET } from './engine/businessRules';
 import { formatErrorMessage } from './engine/errors';
 
 export default function App() {
+  // Navigation View: Landing page at root ('/'), Tool at ('/app')
+  const [currentView, setCurrentView] = useState<'landing' | 'app'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      const search = window.location.search;
+      if (path.startsWith('/app') || hash === '#app' || search.includes('view=app')) {
+        return 'app';
+      }
+    }
+    return 'landing';
+  });
+
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [maxStepReached, setMaxStepReached] = useState<number>(1);
   const [workbook, setWorkbook] = useState<ParsedWorkbook | null>(null);
@@ -46,10 +60,56 @@ export default function App() {
     handleUnlockedSuccess,
   } = useProLicense();
 
-  // Ensure browser document title is set
+  // Listen to browser forward/back buttons
   useEffect(() => {
-    document.title = 'Commission Engine Pro | Sales Commission Calculator';
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      const search = window.location.search;
+      if (path.startsWith('/app') || hash === '#app' || search.includes('view=app')) {
+        setCurrentView('app');
+      } else {
+        setCurrentView('landing');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Update browser document title
+  useEffect(() => {
+    if (currentView === 'landing') {
+      document.title = 'Definitely Not Spreadsheets | Automated Sales Commission Engine';
+    } else {
+      document.title = 'Commission Engine | Definitely Not Spreadsheets';
+    }
+  }, [currentView]);
+
+  // Navigate to App Tool view
+  const navigateToApp = () => {
+    setCurrentView('app');
+    if (window.location.pathname !== '/app') {
+      try {
+        window.history.pushState({ view: 'app' }, '', '/app');
+      } catch {
+        window.location.hash = 'app';
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Navigate to Landing Page view
+  const navigateToLanding = () => {
+    setCurrentView('landing');
+    if (window.location.pathname !== '/') {
+      try {
+        window.history.pushState({ view: 'landing' }, '', '/');
+      } catch {
+        window.location.hash = '';
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // When a workbook is loaded, run auto column detection
   const handleWorkbookLoaded = (wb: ParsedWorkbook) => {
@@ -180,6 +240,23 @@ export default function App() {
     };
   }, [activeSheet, mapping]);
 
+  if (currentView === 'landing') {
+    return (
+      <>
+        <LandingPage
+          onLaunchApp={navigateToApp}
+          onOpenProModal={() => openModal()}
+          isUnlocked={isUnlocked}
+        />
+        <ProUpgradeModal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          onUnlockedSuccess={handleUnlockedSuccess}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased">
       {/* Top Navbar with Step Progression */}
@@ -192,6 +269,7 @@ export default function App() {
         onReset={handleReset}
         isUnlocked={isUnlocked}
         onOpenProModal={() => openModal()}
+        onNavigateHome={navigateToLanding}
       />
 
       {/* Main Content Body */}

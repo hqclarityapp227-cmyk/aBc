@@ -23,6 +23,7 @@ interface NavbarProps {
   onReset: () => void;
   isUnlocked?: boolean;
   onOpenProModal?: () => void;
+  onNavigateHome?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -34,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onReset,
   isUnlocked,
   onOpenProModal,
+  onNavigateHome,
 }) => {
   const steps = [
     { id: 1, label: '1. Upload File', icon: FileSpreadsheet },
@@ -48,14 +50,18 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand & App Title */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-inner font-bold">
+          <div
+            className="flex items-center space-x-3 cursor-pointer group"
+            onClick={onNavigateHome}
+            title="Definitely Not Spreadsheets - Back to Home"
+          >
+            <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-inner font-bold group-hover:scale-105 transition-transform">
               <FileSpreadsheet className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="font-semibold text-base tracking-tight text-white">
-                  Commission Engine Pro
+                <span className="font-bold text-base tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+                  Definitely Not Spreadsheets
                 </span>
                 <span className="px-2 py-0.5 text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-800 rounded">
                   Instant & Private
@@ -69,6 +75,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Active File, Pro Button & Reset */}
           <div className="flex items-center space-x-3">
+            {onNavigateHome && (
+              <button
+                type="button"
+                id="btn-nav-back-home"
+                onClick={onNavigateHome}
+                className="hidden lg:flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition cursor-pointer"
+                title="Return to Landing Page"
+              >
+                <span>← Home</span>
+              </button>
+            )}
+
             {/* Upgrade to Pro / Pro Status CTA */}
             {isUnlocked ? (
               <button

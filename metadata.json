@@ -1,6 +1,6 @@
 {
   "name": "Sales & Commission Processor",
-  "description": "Internal tool to parse sales and commission exports, normalize data, calculate commissions, flag validation issues, and generate final Excel workbooks.",
+  "description": "Definitely Not Spreadsheets - Turn hours of repetitive Excel work into seconds. Automatically parse sales exports, normalize data anomalies, calculate tiered commissions, and generate executive Excel workbooks.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

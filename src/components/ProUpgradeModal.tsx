@@ -10,9 +10,10 @@ import {
   ShieldCheck,
   AlertCircle,
   FileSpreadsheet,
+  Loader2,
 } from 'lucide-react';
 import {
-  validateLicenseKey,
+  validateLicenseWithServer,
   persistValidatedLicense,
   STORAGE_KEY_PRO_UNLOCKED,
   STORAGE_KEY_LICENSE,
@@ -35,33 +36,49 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
   const [inputKey, setInputKey] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleActivateKey = (e: React.FormEvent) => {
+  const handleActivateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = inputKey.trim();
 
-    // Use strict mathematical and admin key validation
-    const validation = validateLicenseKey(trimmed);
-
-    if (!validation.isValid) {
-      setErrorMsg(validation.error || 'Invalid License Key. Please check your key or purchase a pass on Whop.');
+    if (!trimmed) {
+      setErrorMsg('Please enter your Whop License Key to unlock.');
       return;
     }
 
-    // Save strictly validated license state in browser localStorage
-    persistValidatedLicense(validation.formattedKey || trimmed);
+    try {
+      setIsValidating(true);
+      setErrorMsg(null);
 
-    setErrorMsg(null);
-    setSuccessMsg(true);
+      // Send request to Netlify Serverless Function (which validates with Whop API)
+      const validation = await validateLicenseWithServer(trimmed);
 
-    setTimeout(() => {
-      onClose();
-      if (onUnlockedSuccess) {
-        onUnlockedSuccess();
+      if (!validation.isValid) {
+        setErrorMsg(validation.error || 'Invalid or expired License Key. Please check your Whop account.');
+        setIsValidating(false);
+        return;
       }
-    }, 800);
+
+      // Save strictly validated license state in browser localStorage
+      persistValidatedLicense(validation.formattedKey || trimmed);
+
+      setErrorMsg(null);
+      setSuccessMsg(true);
+
+      setTimeout(() => {
+        onClose();
+        if (onUnlockedSuccess) {
+          onUnlockedSuccess();
+        }
+      }, 700);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Error validating license key. Please check your connection and try again.');
+    } finally {
+      setIsValidating(false);
+    }
   };
 
 
@@ -204,12 +221,26 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({
             <button
               type="submit"
               id="btn-activate-license-key"
-              disabled={successMsg}
+              disabled={successMsg || isValidating}
               className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
             >
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Unlock Direct Excel Downloads</span>
-              <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              {isValidating ? (
+                <>
+                  <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                  <span>Verifying with Whop API...</span>
+                </>
+              ) : successMsg ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>License Unlocked!</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Unlock Direct Excel Downloads</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </>
+              )}
             </button>
 
             <p className="text-[10px] text-slate-500 text-center">
